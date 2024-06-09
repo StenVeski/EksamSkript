@@ -1,0 +1,36 @@
+cls
+
+#Loeb sisse kõik CSV failis olevad kasutajad
+$users = Import-Csv C:\Users\Administrator\Downloads\kasutajad.csv
+
+foreach($user in $users) {
+
+  #Muutujad
+    $nimi = $user.Eesnimi + " " + $user.Perekonnanimi
+    $SAM = ($user.Eesnimi[0]+$user.Perekonnanimi).ToLower()
+    $UPN = ($user.Eesnimi).ToLower() + "." + ($user.Perekonnanimi).ToLower()+"@oige.ee"
+    $parool = (ConvertTo-SecureString -AsPlainText "Passw0rd" -Force)
+    $OU = ($user.osakond).ToUpper()
+    $parent = 'OU=KASUTAJAD,DC=oige,DC=ee'
+    $OUS = 'OU='+$OU+',OU=KASUTAJAD,DC=oige,DC=ee'
+   
+
+    #Kontrollib, kas OU puudub ja juhul kui puudub, siis teeb uue OU
+    if (Get-ADOrganizationalUnit -Filter "Name -eq '$OU'"){
+        Write-Host "$OU already exists."
+    } else {
+        New-ADOrganizationalUnit -Name $OU -path $parent
+    }
+
+try{
+    (Get-ADUser $SAM).sAMAccountName
+    $olemas = $true
+    $ER = Write-Host "$SAM, on juba olemas"
+
+
+}
+#Loob kasutajad
+catch [Microsoft.ActiveDirectory.Management.ADIdentityResolutionException]{
+New-ADUser -Name $nimi -GivenName $user.Eesnimi -Surname $user.Perekonnanimi -SamAccountName $SAM -UserPrincipalName $UPN -AccountPassword $parool -DisplayName $nimi -ChangePasswordAtLogon $true -Path $OUS -Enabled $true
+
+}
